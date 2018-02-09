@@ -73,6 +73,12 @@ LH_CONFIG_OPTS += --enable-gstreamer_10=yes
 endif
 
 N_CONFIG_OPTS  = $(LOCAL_NEUTRINO_BUILD_OPTIONS)
+ifeq ($(FLAVOUR), neutrino-mp-ni)
+N_CONFIG_OPTS += --with-boxtype=armbox
+N_CONFIG_OPTS += --with-boxmodel=$(BOXTYPE)
+else
+N_CONFIG_OPTS += --with-boxtype=$(BOXTYPE)
+endif
 N_CONFIG_OPTS += --enable-freesatepg
 N_CONFIG_OPTS += --enable-lua
 N_CONFIG_OPTS += --enable-giflib
@@ -85,7 +91,6 @@ N_CONFIG_OPTS += --disable-upnp
 N_CONFIG_OPTS += --enable-pugixml
 
 N_CONFIG_OPTS += \
-	--with-boxtype=$(BOXTYPE) \
 	--with-libdir=/usr/lib \
 	--with-datadir=/share/tuxbox \
 	--with-fontdir=/share/fonts \
@@ -128,7 +133,7 @@ else ifeq  ($(FLAVOUR), neutrino-mp-ni)
 GIT_URL      = https://bitbucket.org/neutrino-images
 NEUTRINO_MP  = ni-neutrino-hd
 LIBSTB_HAL   = ni-libstb-hal-next
-N_BRANCH    ?= master
+N_BRANCH    ?= ni/mp/tuxbox
 L_BRANCH    ?= master
 N_PATCHES    = $(NEUTRINO_MP_NI_PATCHES)
 L_PATCHES    = $(NEUTRINO_MP_LIBSTB_NI_PATCHES)
@@ -150,9 +155,8 @@ N_PATCHES    = $(NEUTRINO_MP_DDT_PATCHES)
 L_PATCHES    = $(NEUTRINO_MP_LIBSTB_DDT_PATCHES)
 endif
 
-OBJDIR = $(BUILD_TMP)
-N_OBJDIR = $(OBJDIR)/$(NEUTRINO_MP)
-LH_OBJDIR = $(OBJDIR)/$(LIBSTB_HAL)
+N_OBJDIR = $(BUILD_TMP)/$(NEUTRINO_MP)
+LH_OBJDIR = $(BUILD_TMP)/$(LIBSTB_HAL)
 
 ################################################################################
 #
@@ -195,8 +199,7 @@ $(D)/libstb-hal.config.status: | $(NEUTRINO_DEPS)
 	@touch $@
 
 $(D)/libstb-hal.do_compile: $(D)/libstb-hal.config.status
-	cd $(SOURCE_DIR)/$(LIBSTB_HAL); \
-		$(MAKE) -C $(LH_OBJDIR) all DESTDIR=$(TARGET_DIR)
+	$(MAKE) -C $(LH_OBJDIR) all DESTDIR=$(TARGET_DIR)
 	@touch $@
 
 $(D)/libstb-hal: $(D)/libstb-hal.do_prepare $(D)/libstb-hal.do_compile
@@ -246,7 +249,6 @@ $(D)/neutrino-mp-plugins.config.status:
 			--build=$(BUILD) \
 			--host=$(TARGET) \
 			$(N_CONFIG_OPTS) \
-			--with-boxtype=$(BOXTYPE) \
 			--with-stb-hal-includes=$(SOURCE_DIR)/$(LIBSTB_HAL)/include \
 			--with-stb-hal-build=$(LH_OBJDIR) \
 			PKG_CONFIG=$(PKG_CONFIG) \

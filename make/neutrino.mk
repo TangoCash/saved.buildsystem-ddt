@@ -80,10 +80,6 @@ else
 N_CONFIG_OPTS += --with-boxtype=$(BOXTYPE)
 endif
 N_CONFIG_OPTS += --enable-freesatepg
-N_CONFIG_OPTS += --enable-lua
-N_CONFIG_OPTS += --enable-giflib
-N_CONFIG_OPTS += --with-tremor
-N_CONFIG_OPTS += --enable-ffmpegdec
 #N_CONFIG_OPTS += --enable-pip
 #N_CONFIG_OPTS += --disable-webif
 N_CONFIG_OPTS += --disable-upnp
@@ -94,6 +90,7 @@ N_CONFIG_OPTS += \
 	--with-libdir=/usr/lib \
 	--with-datadir=/share/tuxbox \
 	--with-fontdir=/share/fonts \
+	--with-fontdir_var=/var/tuxbox/fonts \
 	--with-configdir=/var/tuxbox/config \
 	--with-gamesdir=/var/tuxbox/games \
 	--with-iconsdir=/share/tuxbox/neutrino/icons \
@@ -104,13 +101,11 @@ N_CONFIG_OPTS += \
 	--with-plugindir_var=/var/tuxbox/plugins \
 	--with-luaplugindir=/var/tuxbox/plugins \
 	--with-private_httpddir=/share/tuxbox/neutrino/httpd \
+	--with-public_httpddir=/var/tuxbox/httpd \
 	--with-themesdir=/share/tuxbox/neutrino/themes \
 	--with-themesdir_var=/var/tuxbox/themes \
 	--with-webtvdir=/share/tuxbox/neutrino/webtv \
-	--with-webtvdir_var=/var/tuxbox/plugins/webtv \
-	PKG_CONFIG=$(PKG_CONFIG) \
-	PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) \
-	CFLAGS="$(N_CFLAGS)" CXXFLAGS="$(N_CFLAGS)" CPPFLAGS="$(N_CPPFLAGS)"
+	--with-webtvdir_var=/var/tuxbox/webtv
 
 ifeq ($(EXTERNAL_LCD), externallcd)
 N_CONFIG_OPTS += --enable-graphlcd
@@ -186,11 +181,15 @@ $(D)/libstb-hal.config.status: | $(NEUTRINO_DEPS)
 		$(SOURCE_DIR)/$(LIBSTB_HAL)/autogen.sh $(SILENT_OPT); \
 		$(BUILDENV) \
 		$(SOURCE_DIR)/$(LIBSTB_HAL)/configure $(SILENT_OPT)\
-			--enable-silent-rules \
 			--host=$(TARGET) \
 			--build=$(BUILD) \
-			--prefix= \
+			--prefix=/usr \
+			--enable-maintainer-mode \
+			--enable-silent-rules \
+			--enable-shared=no \
+			\
 			--with-target=cdk \
+			--with-targetprefix=/usr \
 			--with-boxtype=$(BOXTYPE) \
 			$(LH_CONFIG_OPTS) \
 			PKG_CONFIG=$(PKG_CONFIG) \
@@ -199,11 +198,14 @@ $(D)/libstb-hal.config.status: | $(NEUTRINO_DEPS)
 	@touch $@
 
 $(D)/libstb-hal.do_compile: $(D)/libstb-hal.config.status
+	PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) \
 	$(MAKE) -C $(LH_OBJDIR) all DESTDIR=$(TARGET_DIR)
 	@touch $@
 
 $(D)/libstb-hal: $(D)/libstb-hal.do_prepare $(D)/libstb-hal.do_compile
+	PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) \
 	$(MAKE) -C $(LH_OBJDIR) install DESTDIR=$(TARGET_DIR)
+	$(REWRITE_LIBTOOL)/libstb-hal.la
 	$(TOUCH)
 
 libstb-hal-clean:
@@ -245,9 +247,16 @@ $(D)/neutrino-mp-plugins.config.status:
 		$(SOURCE_DIR)/$(NEUTRINO_MP)/autogen.sh $(SILENT_OPT); \
 		$(BUILDENV) \
 		$(SOURCE_DIR)/$(NEUTRINO_MP)/configure $(SILENT_OPT)\
-			--enable-silent-rules \
-			--build=$(BUILD) \
 			--host=$(TARGET) \
+			--build=$(BUILD) \
+			--enable-maintainer-mode \
+			--enable-silent-rules \
+			\
+			--enable-ffmpegdec \
+			--enable-giflib \
+			--enable-lua \
+			--enable-pugixml \
+			--with-tremor \
 			$(N_CONFIG_OPTS) \
 			--with-stb-hal-includes=$(SOURCE_DIR)/$(LIBSTB_HAL)/include \
 			--with-stb-hal-build=$(LH_OBJDIR) \
@@ -268,19 +277,20 @@ $(SOURCE_DIR)/$(NEUTRINO_MP)/src/gui/version.h:
 		NMP_REV=$$(git log | grep "^commit" | wc -l); \
 		popd; \
 		pushd $(BASE_DIR); \
-		DDT_REV=$$(git log | grep "^commit" | wc -l); \
+		BS_REV=$$(git log | grep "^commit" | wc -l); \
 		popd; \
-		echo '#define VCS "DDT-rev'$$DDT_REV'_HAL-rev'$$HAL_REV'_NMP-rev'$$NMP_REV'"' >> $@; \
+		echo '#define VCS "BS-rev'$$BS_REV'_HAL-rev'$$HAL_REV'_NMP-rev'$$NMP_REV'"' >> $@; \
 	fi
 
 $(D)/neutrino-mp-plugins.do_compile \
 $(D)/neutrino-mp.do_compile:
-	cd $(SOURCE_DIR)/$(NEUTRINO_MP); \
-		$(MAKE) -C $(N_OBJDIR) all
+	PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) \
+	$(MAKE) -C $(N_OBJDIR) all DESTDIR=$(TARGET_DIR)
 	@touch $@
 
 mp \
 neutrino-mp: $(D)/neutrino-mp.do_prepare $(D)/neutrino-mp.config.status $(D)/neutrino-mp.do_compile
+	PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) \
 	$(MAKE) -C $(N_OBJDIR) install DESTDIR=$(TARGET_DIR)
 	make $(TARGET_DIR)/var/etc/.version
 	touch $(D)/$(notdir $@)
@@ -302,6 +312,7 @@ neutrino-mp-distclean: neutrino-cdkroot-clean
 
 mpp \
 neutrino-mp-plugins: $(D)/neutrino-mp-plugins.do_prepare $(D)/neutrino-mp-plugins.config.status $(D)/neutrino-mp-plugins.do_compile
+	PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) \
 	$(MAKE) -C $(N_OBJDIR) install DESTDIR=$(TARGET_DIR)
 	make $(TARGET_DIR)/var/etc/.version
 	make $(NEUTRINO_PLUGINS)
